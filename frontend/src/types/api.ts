@@ -92,6 +92,31 @@ export interface Video {
   detection_count: number
 }
 
+export interface SampleInfo {
+  key: string
+  title: string
+  category: string
+  description: string
+  objects: string[]
+  license: string
+  attribution: string
+  source_page: string
+  approx_mb: number
+  duration_s: number | null
+  fixed_camera: boolean
+  scenario: string | null
+  zones: { name: string; zone_type: string; polygon: Point[]; color: string; occupancy_threshold: number | null }[]
+  imported_video_id: string | null
+}
+
+export interface SampleMeta {
+  key: string
+  title: string
+  license: string
+  attribution: string
+  source_page: string
+}
+
 export type Point = [number, number]
 
 export interface ZoneStats {

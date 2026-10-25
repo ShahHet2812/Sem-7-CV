@@ -44,6 +44,37 @@ class VideoUpdate(BaseModel):
     recorded_at: datetime | None = None
 
 
+class SampleZoneOut(BaseModel):
+    name: str
+    zone_type: str
+    polygon: list[list[float]]
+    color: str
+    occupancy_threshold: int | None = None
+
+
+class SampleOut(BaseModel):
+    key: str
+    title: str
+    category: str
+    description: str
+    objects: list[str]
+    license: str
+    attribution: str
+    source_page: str
+    approx_mb: float
+    duration_s: float | None
+    fixed_camera: bool
+    scenario: str | None
+    zones: list[SampleZoneOut]
+    imported_video_id: uuid.UUID | None = None
+
+
+class SampleImportRequest(BaseModel):
+    setup_scenario: bool = Field(
+        default=True, description="Create the preset zones and queue processing with sample overrides"
+    )
+
+
 class ProcessRequest(BaseModel):
     """Optional per-job overrides of the saved processing settings."""
 

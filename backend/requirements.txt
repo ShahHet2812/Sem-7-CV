@@ -13,3 +13,4 @@ opencv-python-headless==5.0.0.93
 pillow==12.3.0
 ultralytics==8.4.188
 lap==0.5.13
+imageio-ffmpeg==0.6.0

@@ -1,5 +1,5 @@
 import { api, uploadWithProgress } from '@/lib/api'
-import type { DetectionWindow, Job, MonitoringEvent, Page, Video } from '@/types/api'
+import type { DetectionWindow, Job, MonitoringEvent, Page, SampleInfo, Video } from '@/types/api'
 
 export interface VideoListParams {
   q?: string
@@ -18,6 +18,9 @@ export const videosApi = {
   remove: (id: string) => api.delete(`/api/v1/videos/${id}`),
   process: (id: string) => api.post<Job>(`/api/v1/videos/${id}/process`),
   importSample: () => api.post<Video>('/api/v1/videos/sample'),
+  samples: () => api.get<SampleInfo[]>('/api/v1/videos/samples'),
+  importCatalogSample: (key: string, setupScenario: boolean) =>
+    api.post<Video>(`/api/v1/videos/samples/${key}`, { setup_scenario: setupScenario }),
   upload: (file: File, recordedAt: string | undefined, onProgress: (f: number) => void, signal?: AbortSignal) => {
     const form = new FormData()
     form.append('file', file)

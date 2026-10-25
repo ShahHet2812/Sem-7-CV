@@ -197,10 +197,26 @@ copied into each job when it is queued, so a job is reproducible and retries use
 5. **Events**: filter, review or dismiss, open details with the snapshot, and export CSV.
 6. **Overview / Analytics**: inspect the aggregates.
 
-**Sample video:** *Import sample video* downloads `people-detection.mp4` from
-[intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos), licensed
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (© Intel Corporation). The clip is not redistributed
-in this repository; it is fetched only when you click the button.
+**Sample video library:** **Video Library → Sample videos** lists 13 freely licensed clips that are downloaded
+only on request; nothing is redistributed in this repository. The catalog lives in
+`backend/app/services/samples.py`:
+
+| Category | Clips | Tests |
+|---|---|---|
+| Restricted zone | warehouse hazard boundary (DMZ-style), night IR intrusion, property perimeter / gate | restricted-entry and occupancy alerts with preset zones |
+| Vehicles | parking-lot surveillance (2 min 25 s fixed shot, trimmed with ffmpeg), street with person/bicycle/car | cars, trucks, bicycles, pedestrians; long-video processing |
+| People | overhead room, one-by-one entries, pedestrians walking and pausing | tracking, entry/exit counting |
+| Retail / indoor | store aisle, classroom | crowds, chairs, laptops, bags |
+| Objects | bottles, fruit and vegetables | non-person COCO classes |
+| Military (archival) | 1968 U.S. Air Force air-base security film (6 min) | soldiers, aircraft, vehicles on edited film (detection only; camera cuts make zones meaningless) |
+
+Sources are [intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos)
+([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), © Intel Corporation) and public-domain files on
+Wikimedia Commons. VP9 transcodes are used where the original is AV1, which the OpenCV build cannot decode.
+With *Set up demo scenario* enabled, importing a clip also creates its preset zones and queues processing with
+classes tuned for it. I found no freely licensed, fixed-camera footage of an actual military perimeter, so the
+warehouse hazard-line clip stands in as the restricted/DMZ demonstration: crossing the line raises a critical
+`restricted_entry` alert, and more than one person inside raises an occupancy alert.
 
 **Codecs:** decoding uses the FFmpeg build bundled in the OpenCV wheel, which handles H.264, H.265, MPEG-4,
 MJPEG, VP8/VP9 and more. Browser playback is narrower: H.264/VP9/AV1 in MP4 or WebM play everywhere, while

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -65,7 +66,12 @@ def get_out(db: Session, video_id: uuid.UUID) -> VideoOut:
 
 
 def register(
-    db: Session, stored: StoredVideo, *, is_sample: bool = False, recorded_at: datetime | None = None
+    db: Session,
+    stored: StoredVideo,
+    *,
+    is_sample: bool = False,
+    recorded_at: datetime | None = None,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> Video:
     m = stored.metadata
     video = Video(
@@ -84,7 +90,7 @@ def register(
         is_sample=is_sample,
         recorded_at=recorded_at,
         thumbnail_filename=stored.thumbnail_filename,
-        processing_metadata={"fps_estimated": m.fps_estimated},
+        processing_metadata={"fps_estimated": m.fps_estimated, **(extra_metadata or {})},
     )
     db.add(video)
     db.commit()
@@ -122,6 +128,42 @@ def delete_video(db: Session, storage: VideoStorage, video: Video) -> None:
     # never leaves rows pointing at deleted files.
     storage.delete_video_files(vid, filename, thumb)
     logger.info("Video deleted", extra={"video_id": vid})
+
+
+def find_sample_video(db: Session, key: str) -> Video | None:
+    for v in db.scalars(select(Video).where(Video.is_sample.is_(True))):
+        if (v.processing_metadata or {}).get("sample", {}).get("key") == key:
+            return v
+    return None
+
+
+def setup_sample_scenario(
+    db: Session,
+    settings: Settings,
+    provider: YoloModelProvider,
+    queue: JobQueue,
+    video: Video,
+    sample: Any,
+) -> None:
+    """Create a sample's preset zones and queue processing with its overrides."""
+    from app.schemas.zone import ZoneCreate
+    from app.services import zone_service
+
+    for z in sample.zones:
+        zone_service.create_zone(
+            db,
+            settings,
+            video,
+            ZoneCreate(
+                name=z.name,
+                zone_type=z.zone_type,
+                color=z.color,
+                polygon=z.polygon,
+                occupancy_threshold=z.occupancy_threshold,
+                class_filter=z.class_filter,
+            ),
+        )
+    queue_processing(db, settings, provider, queue, video, ProcessRequest(**sample.process))
 
 
 def queue_processing(

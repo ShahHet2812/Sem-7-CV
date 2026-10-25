@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bboxToScreen, contentRect, frameAt, pointInPolygon, polygonProblem, toNormalized, toScreen } from '@/lib/geometry'
+import { bboxToScreen, contentRect, frameAt, pointInPolygon, polygonProblem, snapToEdges, toNormalized, toScreen } from '@/lib/geometry'
 import type { FrameDetections, Point } from '@/types/api'
 
 describe('contentRect (object-fit: contain letterboxing)', () => {
@@ -27,6 +27,10 @@ describe('coordinate mapping', () => {
   it('rejects clicks in the letterbox bars unless clamped', () => {
     expect(toNormalized(100, 450, rect)).toBeNull()
     expect(toNormalized(100, 450, rect, true)).toEqual([0, 0.5])
+  })
+  it('snaps editor points near the frame edge onto it', () => {
+    expect(snapToEdges([0.991, 0.005])).toEqual([1, 0])
+    expect(snapToEdges([0.5, 0.97])).toEqual([0.5, 0.97])
   })
   it('maps boxes into the content rect', () => {
     expect(bboxToScreen([0, 0, 0.5, 0.5], rect)).toEqual({ x: 200, y: 0, width: 600, height: 450 })

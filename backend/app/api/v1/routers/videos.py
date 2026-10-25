@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Literal
@@ -10,7 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_provider, get_queue, get_storage
 from app.core.config import Settings, get_settings
-from app.core.errors import NotFoundError, PayloadTooLarge, ServiceUnavailable, ValidationFailed
+from app.core.errors import (
+    ConflictError,
+    NotFoundError,
+    PayloadTooLarge,
+    ServiceUnavailable,
+    ValidationFailed,
+)
 from app.cv.detector import YoloModelProvider
 from app.db.session import get_db
 from app.repositories import detections as det_repo
@@ -20,14 +27,22 @@ from app.schemas.common import Page, PageParams
 from app.schemas.detection import DetectionOut, DetectionWindow, FrameDetections
 from app.schemas.event import EventOut
 from app.schemas.job import JobOut
-from app.schemas.video import ProcessRequest, VideoOut, VideoUpdate
+from app.schemas.video import (
+    ProcessRequest,
+    SampleImportRequest,
+    SampleOut,
+    SampleZoneOut,
+    VideoOut,
+    VideoUpdate,
+)
 from app.schemas.zone import ZoneCreate, ZoneOut, ZoneRecomputeResult
-from app.services import event_service, video_service, zone_service
+from app.services import event_service, samples, video_service, zone_service
 from app.services.serializers import job_out
 from app.services.snapshots import generate_missing_snapshots
 from app.services.storage import VideoStorage
 from app.workers.job_worker import JobQueue
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/videos", tags=["videos"])
 
 MAX_WINDOW_SECONDS = 120.0
@@ -55,28 +70,86 @@ def upload_video(
     return video_service.get_out(db, video.id)
 
 
+@router.get("/samples", response_model=list[SampleOut], summary="Catalog of downloadable sample videos")
+def list_samples(db: Session = Depends(get_db)) -> list[SampleOut]:
+    out = []
+    for s in samples.CATALOG:
+        existing = video_service.find_sample_video(db, s.key)
+        out.append(
+            SampleOut(
+                **{k: getattr(s, k) for k in SampleOut.model_fields if hasattr(s, k) and k != "zones"},
+                zones=[SampleZoneOut(**z.__dict__) for z in s.zones],
+                imported_video_id=existing.id if existing else None,
+            )
+        )
+    return out
+
+
+def _import(
+    key: str,
+    setup: bool,
+    db: Session,
+    storage: VideoStorage,
+    settings: Settings,
+    provider: YoloModelProvider,
+    queue: JobQueue,
+) -> VideoOut:
+    sample = samples.BY_KEY.get(key)
+    if sample is None:
+        raise NotFoundError("Unknown sample video.")
+    if video_service.find_sample_video(db, key) is not None:
+        raise ConflictError("This sample video has already been imported.")
+    try:
+        stored = samples.import_sample(storage, sample)
+    except (ValidationFailed, PayloadTooLarge, ServiceUnavailable):
+        raise
+    except Exception as exc:  # noqa: BLE001 - network problems
+        logger.warning("Sample import '%s' failed", key, exc_info=exc)
+        raise ServiceUnavailable(
+            "The sample video could not be downloaded. Check internet access or upload your own video.",
+            code="sample_download_failed",
+        ) from exc
+    video = video_service.register(
+        db, stored, is_sample=True, extra_metadata={"sample": samples.sample_metadata(sample)}
+    )
+    if setup and (sample.zones or sample.process):
+        video_service.setup_sample_scenario(db, settings, provider, queue, video, sample)
+    return video_service.get_out(db, video.id)
+
+
+@router.post(
+    "/samples/{key}",
+    response_model=VideoOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Import a catalog sample (optionally with its demo zones + processing)",
+)
+def import_catalog_sample(
+    key: str,
+    body: SampleImportRequest | None = Body(None),
+    db: Session = Depends(get_db),
+    storage: VideoStorage = Depends(get_storage),
+    settings: Settings = Depends(get_settings),
+    provider: YoloModelProvider = Depends(get_provider),
+    queue: JobQueue = Depends(get_queue),
+) -> VideoOut:
+    setup = body.setup_scenario if body else True
+    return _import(key, setup, db, storage, settings, provider, queue)
+
+
 @router.post(
     "/sample",
     response_model=VideoOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Import the optional public sample video (requires internet access)",
+    summary="Import the default sample video (requires internet access)",
 )
 def import_sample(
     db: Session = Depends(get_db),
     storage: VideoStorage = Depends(get_storage),
     settings: Settings = Depends(get_settings),
+    provider: YoloModelProvider = Depends(get_provider),
+    queue: JobQueue = Depends(get_queue),
 ) -> VideoOut:
-    try:
-        stored = storage.import_from_url(settings.sample_video_url, "sample-people-detection.mp4")
-    except (ValidationFailed, PayloadTooLarge):
-        raise
-    except Exception as exc:  # noqa: BLE001 - network problems
-        raise ServiceUnavailable(
-            "The sample video could not be downloaded. Check internet access or upload your own video.",
-            code="sample_download_failed",
-        ) from exc
-    video = video_service.register(db, stored, is_sample=True)
-    return video_service.get_out(db, video.id)
+    return _import(samples.DEFAULT_SAMPLE, False, db, storage, settings, provider, queue)
 
 
 @router.get("", response_model=Page[VideoOut], summary="List videos")

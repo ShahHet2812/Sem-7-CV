@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
-import { contentRect, frameAt, toNormalized, toScreen, type Rect } from '@/lib/geometry'
+import { contentRect, frameAt, snapToEdges, toNormalized, toScreen, type Rect } from '@/lib/geometry'
 import { resourceUrl } from '@/lib/api'
 import { cn, formatDuration } from '@/lib/utils'
 import type { BBox, FrameDetections, Point, Video, Zone } from '@/types/api'
@@ -226,6 +226,17 @@ export const VideoStage = forwardRef<VideoStageHandle, Props>(function VideoStag
     return best
   }
 
+  // Objects touching the image border have anchors exactly on x/y = 0 or 1, so
+  // vertices close to an edge snap onto it; clicks slightly outside the
+  // picture (in the letterbox) are accepted and clamped.
+  const editorPoint = (sx: number, sy: number): Point | null => {
+    const rect = getRect()
+    const pad = 16
+    if (sx < rect.x - pad || sx > rect.x + rect.width + pad || sy < rect.y - pad || sy > rect.y + rect.height + pad) return null
+    const p = toNormalized(sx, sy, rect, true)
+    return p ? snapToEdges(p) : null
+  }
+
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (!draft || !onDraftChange) {
       togglePlay()
@@ -243,7 +254,7 @@ export const VideoStage = forwardRef<VideoStageHandle, Props>(function VideoStag
       return
     }
     if (draft.closed) return
-    const p = toNormalized(sx, sy, getRect())
+    const p = editorPoint(sx, sy)
     if (p) onDraftChange({ ...draft, points: [...draft.points, p] })
   }
 
@@ -251,7 +262,7 @@ export const VideoStage = forwardRef<VideoStageHandle, Props>(function VideoStag
     if (!draft) return
     const [sx, sy] = localPoint(e)
     if (dragIndex.current !== null && onDraftChange) {
-      const p = toNormalized(sx, sy, getRect(), true)
+      const p = editorPoint(sx, sy)
       if (p) {
         const pts = draft.points.slice()
         pts[dragIndex.current] = p

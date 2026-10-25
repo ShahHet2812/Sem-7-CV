@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import urllib.request
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -150,26 +149,6 @@ class VideoStorage:
             return self._finalize(final, original, ext, size)
         except BaseException:
             tmp.unlink(missing_ok=True)
-            final.unlink(missing_ok=True)
-            raise
-
-    def import_from_url(self, url: str, display_name: str) -> StoredVideo:
-        """Download a fixed, server-configured URL (never user supplied)."""
-        ext = self.validate_extension(display_name)
-        storage_filename = f"{uuid.uuid4().hex}{ext}"
-        final = self.settings.uploads_dir / storage_filename
-        self.settings.uploads_dir.mkdir(parents=True, exist_ok=True)
-        size = 0
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "ZoneVision/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp, final.open("wb") as out:  # noqa: S310
-                while chunk := resp.read(CHUNK):
-                    size += len(chunk)
-                    if size > self.settings.max_upload_bytes:
-                        raise PayloadTooLarge("Sample video exceeds the maximum upload size.")
-                    out.write(chunk)
-            return self._finalize(final, display_name, ext, size)
-        except BaseException:
             final.unlink(missing_ok=True)
             raise
 

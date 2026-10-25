@@ -43,11 +43,15 @@ function Onboarding() {
             </Link>
           </Button>
           <Button variant="outline" onClick={() => sample.mutate()} disabled={sample.isPending}>
-            <Sparkles /> {sample.isPending ? 'Downloading sample…' : 'Import sample video'}
+            <Sparkles /> {sample.isPending ? 'Downloading sample…' : 'Quick sample'}
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/videos?samples=1">Browse sample library</Link>
           </Button>
         </div>
         <p className="mt-2 text-xs text-subtle">
-          Sample: “people-detection.mp4” from intel-iot-devkit/sample-videos (CC BY 4.0), downloaded on request.
+          Samples are CC BY 4.0 (Intel sample-videos) or public domain (Wikimedia Commons), downloaded only on request. The library includes
+          a restricted-zone demo with preset zones.
         </p>
       </div>
       <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">

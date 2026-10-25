@@ -4,10 +4,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, Pagination, StatusBadge } from '@/components/common'
 import { Button } from '@/components/ui/button'
 import { Card, Input, Progress, Select } from '@/components/ui/primitives'
-import { useDeleteVideo, useImportSample, useJobAction, useProcessVideo, useVideos } from '@/hooks/queries'
+import { useDeleteVideo, useJobAction, useProcessVideo, useVideos } from '@/hooks/queries'
 import { resourceUrl } from '@/lib/api'
 import { formatBytes, formatDuration, formatRelative } from '@/lib/utils'
 import type { Video } from '@/types/api'
+import { SamplesDialog } from './SamplesDialog'
 import { UploadDialog } from './UploadDialog'
 
 function useDebounced<T>(value: T, ms = 300): T {
@@ -133,6 +134,7 @@ function VideoRow({ video }: { video: Video }) {
 export default function VideoLibraryPage() {
   const [params, setParams] = useSearchParams()
   const [uploadOpen, setUploadOpen] = useState(params.get('upload') === '1')
+  const [samplesOpen, setSamplesOpen] = useState(params.get('samples') === '1')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('created_at:desc')
@@ -140,12 +142,12 @@ export default function VideoLibraryPage() {
   const debouncedQ = useDebounced(q)
   const [sortField, order] = sort.split(':') as [string, 'asc' | 'desc']
   const videos = useVideos({ q: debouncedQ || undefined, status: status || undefined, sort: sortField, order, page, page_size: 10 })
-  const sample = useImportSample()
 
   useEffect(() => setPage(1), [debouncedQ, status, sort])
   useEffect(() => {
-    if (params.get('upload') === '1') {
+    if (params.get('upload') === '1' || params.get('samples') === '1') {
       params.delete('upload')
+      params.delete('samples')
       setParams(params, { replace: true })
     }
   }, [params, setParams])
@@ -160,8 +162,8 @@ export default function VideoLibraryPage() {
         description="Upload footage, start processing jobs, and manage stored videos. Files are validated on the server before they are accepted."
         actions={
           <>
-            <Button variant="outline" onClick={() => sample.mutate()} disabled={sample.isPending} title="Downloads a CC BY 4.0 sample clip from github.com/intel-iot-devkit/sample-videos">
-              {sample.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />} Import sample video
+            <Button variant="outline" onClick={() => setSamplesOpen(true)}>
+              <Sparkles /> Sample videos
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload /> Upload video
@@ -210,8 +212,8 @@ export default function VideoLibraryPage() {
                   <Button onClick={() => setUploadOpen(true)}>
                     <Upload /> Upload video
                   </Button>
-                  <Button variant="outline" onClick={() => sample.mutate()} disabled={sample.isPending}>
-                    <Sparkles /> Import sample
+                  <Button variant="outline" onClick={() => setSamplesOpen(true)}>
+                    <Sparkles /> Browse sample videos
                   </Button>
                 </>
               }
@@ -249,6 +251,7 @@ export default function VideoLibraryPage() {
       </p>
 
       <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
+      <SamplesDialog open={samplesOpen} onOpenChange={setSamplesOpen} />
     </>
   )
 }

@@ -11,7 +11,7 @@ import { useDetectionWindows } from '@/hooks/useDetections'
 import { resourceUrl } from '@/lib/api'
 import { classColor, cn, formatBytes, formatDateTime, formatDuration, formatNumber, ZONE_TYPE_LABELS } from '@/lib/utils'
 import { analyticsApi } from '@/services/resources'
-import type { MonitoringEvent, Video } from '@/types/api'
+import type { MonitoringEvent, SampleMeta, Video } from '@/types/api'
 
 const SEVERITY_COLOR = { info: '#60a5fa', warning: '#fbbf24', critical: '#f87171' }
 
@@ -416,6 +416,19 @@ function Workspace({ video }: { video: Video }) {
               <dd className="text-right tabular">{formatBytes(video.file_size)}</dd>
               <dt className="text-muted">Uploaded</dt>
               <dd className="text-right">{formatDateTime(video.created_at)}</dd>
+              {(() => {
+                const meta = video.processing_metadata.sample as SampleMeta | undefined
+                return meta ? (
+                  <>
+                    <dt className="text-muted">Source</dt>
+                    <dd className="text-right">
+                      <a href={meta.source_page} target="_blank" rel="noreferrer" className="hover:text-primary">
+                        {meta.license} · {meta.attribution}
+                      </a>
+                    </dd>
+                  </>
+                ) : null
+              })()}
               {video.recorded_at && (
                 <>
                   <dt className="text-muted">Recorded</dt>

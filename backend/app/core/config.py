@@ -48,11 +48,6 @@ class Settings(BaseSettings):
     worker_enabled: bool = True
     worker_poll_interval: float = Field(default=1.0, gt=0)
 
-    # Optional public sample video (fetched only on explicit user request)
-    sample_video_url: str = (
-        "https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4"
-    )
-
     @field_validator("storage_dir", "model_dir", mode="before")
     @classmethod
     def _resolve_path(cls, value: object) -> object:

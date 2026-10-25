@@ -116,3 +116,19 @@ def test_migrations_match_models():
         "videos", "processing_jobs", "monitoring_zones", "detections", "track_summaries",
         "monitoring_events", "zone_occupancy_samples", "application_settings", "alembic_version",
     } <= tables
+
+
+def test_sample_catalog(client):
+    items = client.get("/api/v1/videos/samples").json()
+    keys = {s["key"] for s in items}
+    assert {"restricted-area-worker", "people-corridor", "military-air-base-1968"} <= keys
+    restricted = next(s for s in items if s["key"] == "restricted-area-worker")
+    assert restricted["zones"][0]["zone_type"] == "restricted"
+    assert all(s["license"] and s["attribution"] and s["imported_video_id"] is None for s in items)
+    # Every preset polygon must pass the same validation as user zones.
+    from app.cv.geometry import validate_polygon
+
+    for s in items:
+        for z in s["zones"]:
+            validate_polygon(z["polygon"])
+    assert client.post("/api/v1/videos/samples/does-not-exist").status_code == 404

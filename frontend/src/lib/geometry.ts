@@ -44,6 +44,11 @@ export function toNormalized(sx: number, sy: number, rect: Rect, clamp = false):
   return [round6(x), round6(y)]
 }
 
+export function snapToEdges(p: Point, threshold = 0.015): Point {
+  const snap = (v: number) => (v <= threshold ? 0 : v >= 1 - threshold ? 1 : v)
+  return [snap(p[0]), snap(p[1])]
+}
+
 export function bboxToScreen(b: BBox, rect: Rect): Rect {
   return {
     x: rect.x + b[0] * rect.width,
