@@ -253,7 +253,7 @@ export default function AnalyticsPage() {
             </p>
             <p>
               <b className="text-foreground">Entries / exits</b> are confirmed outside↔inside transitions of a track's bottom-center point. An object
-              first seen inside a zone does not count as an entry.
+              first seen inside a zone only counts as an entry if it walked into view through the image border.
             </p>
             <p>
               <b className="text-foreground">Occupancy</b> is the number of live tracks confirmed inside a zone. Missed detections, occlusion and

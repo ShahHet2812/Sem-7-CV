@@ -166,7 +166,7 @@ All backend settings come from environment variables or `.env` in the project ro
 
 Runtime-editable settings, changed on the Settings page and stored in `application_settings`:
 confidence threshold, inference image size, target sampling rate, classes, tracker, zone confirmation samples,
-lost-track timeout, occupancy alert cooldown, zone anchor point, and snapshot generation. Detection settings are
+lost-track timeout, occupancy alert cooldown, zone anchor point, edge entries, and snapshot generation. Detection settings are
 copied into each job when it is queued, so a job is reproducible and retries use the same configuration.
 
 ## Model weights
@@ -241,7 +241,13 @@ original configuration. Jobs left `processing` by a crash are marked failed on s
 * **Point-in-polygon:** `cv2.pointPolygonTest`. **Boundary rule:** a point exactly on an edge or vertex counts
   as *inside*.
 * **Initial state:** the first observation of a track only records which side it is on. Objects that appear
-  already inside a zone do not produce an "entry", because no crossing was observed.
+  already inside a zone (for example, visible at the start or detected late in the middle of the frame) do not
+  produce an "entry", because no crossing was observed.
+* **Entering through the frame edge** (`edge_entries`, on by default): if a new track first appears inside a
+  zone while its box touches the image border (within 3%), after the first processed frame, it has just walked
+  into view through a part of the border that lies inside the zone. It is treated as coming from outside and
+  still goes through the confirmation step below. Without this rule, a zone touching the bottom of an
+  overhead camera view would never register people walking in from under the camera.
 * **Hysteresis:** a side change must persist for `zone_confirm_samples` consecutive observations (default 2)
   before it is confirmed. This suppresses enter/exit flicker for boxes jittering on the boundary.
 * **Events:** exactly one event per confirmed transition. Outside→inside emits `zone_entry`
@@ -308,7 +314,7 @@ every error has the form `{"error": {"code", "message", "details?"}}`.
 ## Testing
 
 ```bash
-# Backend: 98 tests (API, geometry, zone state machine, video reader, job lifecycle, migrations)
+# Backend: 100 tests (API, geometry, zone state machine, video reader, job lifecycle, migrations)
 cd backend && source .venv/bin/activate
 pytest                    # uses a temporary SQLite DB via the real Alembic migrations, no weights needed
 ruff check app tests

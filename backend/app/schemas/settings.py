@@ -15,6 +15,7 @@ class ProcessingSettings(BaseModel):
     track_lost_timeout: float = Field(default=2.0, ge=0.2, le=60)
     occupancy_alert_cooldown: float = Field(default=10.0, ge=0, le=3600)
     anchor_mode: Literal["bottom_center", "center"] = "bottom_center"
+    edge_entries: bool = True
     generate_snapshots: bool = True
 
     @field_validator("classes")
@@ -33,6 +34,7 @@ class ProcessingSettingsUpdate(BaseModel):
     track_lost_timeout: float | None = Field(default=None, ge=0.2, le=60)
     occupancy_alert_cooldown: float | None = Field(default=None, ge=0, le=3600)
     anchor_mode: Literal["bottom_center", "center"] | None = None
+    edge_entries: bool | None = None
     generate_snapshots: bool | None = None
 
 

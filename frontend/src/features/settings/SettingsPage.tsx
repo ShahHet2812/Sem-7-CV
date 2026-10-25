@@ -29,6 +29,7 @@ export const processingSchema = z.object({
   track_lost_timeout: z.coerce.number().min(0.2).max(60),
   occupancy_alert_cooldown: z.coerce.number().min(0).max(3600),
   anchor_mode: z.enum(['bottom_center', 'center']),
+  edge_entries: z.boolean(),
   generate_snapshots: z.boolean(),
 })
 type FormIn = z.input<typeof processingSchema>
@@ -129,6 +130,21 @@ function ProcessingForm({ data }: { data: SettingsResponse }) {
               </Select>
             </Field>
           </div>
+          <Controller
+            control={control}
+            name="edge_entries"
+            render={({ field }) => (
+              <label className="flex items-start gap-2 text-sm">
+                <Switch checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                <span>
+                  Count objects that walk into view inside a zone as entries
+                  <span className="block text-xs text-subtle">
+                    A new track that first appears inside a zone while touching the image border is treated as having entered from outside.
+                  </span>
+                </span>
+              </label>
+            )}
+          />
           <Controller
             control={control}
             name="generate_snapshots"

@@ -32,6 +32,7 @@ export interface ProcessingConfig {
   track_lost_timeout: number
   occupancy_alert_cooldown: number
   anchor_mode: 'bottom_center' | 'center'
+  edge_entries: boolean
   generate_snapshots: boolean
 }
 

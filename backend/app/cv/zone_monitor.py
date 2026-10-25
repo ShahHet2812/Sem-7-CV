@@ -10,6 +10,11 @@ Per (zone, track) the monitor keeps a confirmed state (inside / outside):
 1. The first observation of a track sets its initial state *without* emitting
    an event: we never saw it cross the boundary, so we do not invent a
    crossing for objects that are already inside when they appear.
+   Exception (``edge_entries``): a track that first appears inside a zone
+   while its box touches the image border, after the first processed frame,
+   has just walked into view through a part of the border that lies inside
+   the zone. It is treated as coming from outside, so the normal confirmation
+   below turns it into an entry.
 2. When the observed side differs from the confirmed state, a candidate
    transition starts. It must persist for ``confirm_samples`` consecutive
    observations of that track before it is confirmed. This hysteresis keeps
@@ -114,6 +119,8 @@ class ZoneMonitor:
         lost_timeout: float = 2.0,
         occupancy_cooldown: float = 10.0,
         anchor_mode: AnchorMode | str = AnchorMode.BOTTOM_CENTER,
+        edge_entries: bool = True,
+        edge_margin: float = 0.03,
     ):
         if confirm_samples < 1:
             raise ValueError("confirm_samples must be >= 1")
@@ -123,6 +130,8 @@ class ZoneMonitor:
         self.lost_timeout = lost_timeout
         self.occupancy_cooldown = max(0.0, occupancy_cooldown)
         self.anchor_mode = AnchorMode(anchor_mode)
+        self.edge_entries = edge_entries
+        self.edge_margin = edge_margin
         self._zones = [_ZoneRuntime(spec=z, polygon=Polygon(z.polygon)) for z in zones]
         self.occupancy_changes: list[OccupancyChange] = []
         self._last_ts: float | None = None
@@ -139,11 +148,17 @@ class ZoneMonitor:
     ) -> list[ZoneEventRecord]:
         if self._last_ts is not None and timestamp < self._last_ts:
             raise ValueError("ZoneMonitor.update must be called in timeline order")
+        first_frame = self._last_ts is None
         self._last_ts = timestamp
         events: list[ZoneEventRecord] = []
         for zone in self._zones:
-            events.extend(self._update_zone(zone, timestamp, frame_index, observations))
+            events.extend(self._update_zone(zone, timestamp, frame_index, observations, first_frame))
         return events
+
+    def _touches_border(self, bbox: tuple[float, float, float, float]) -> bool:
+        m = self.edge_margin
+        x1, y1, x2, y2 = bbox
+        return x1 <= m or y1 <= m or x2 >= 1 - m or y2 >= 1 - m
 
     def _update_zone(
         self,
@@ -151,6 +166,7 @@ class ZoneMonitor:
         ts: float,
         frame_index: int,
         observations: Sequence[Observation],
+        first_frame: bool = False,
     ) -> list[ZoneEventRecord]:
         spec = zone.spec
         events: list[ZoneEventRecord] = []
@@ -164,10 +180,19 @@ class ZoneMonitor:
             inside = zone.polygon.contains(bbox_anchor(obs.bbox, self.anchor_mode))
             state = zone.tracks.get(obs.track_id)
             if state is None:
-                zone.tracks[obs.track_id] = _TrackState(
-                    inside=inside, last_seen=ts, class_name=obs.class_name
+                entered_from_edge = (
+                    inside
+                    and self.edge_entries
+                    and not first_frame
+                    and self._touches_border(obs.bbox)
                 )
-                continue
+                state = zone.tracks[obs.track_id] = _TrackState(
+                    inside=inside and not entered_from_edge,
+                    last_seen=ts,
+                    class_name=obs.class_name,
+                )
+                if not entered_from_edge:
+                    continue
             state.last_seen = ts
             if inside == state.inside:
                 state.candidate, state.candidate_count, state.candidate_obs = None, 0, None

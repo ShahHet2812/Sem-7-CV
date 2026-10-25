@@ -55,6 +55,29 @@ def test_first_observation_inside_sets_state_without_event():
     assert events == []
 
 
+def edge_obs(track_id: int, y2: float = 1.0) -> Observation:
+    # Box touching the bottom image border, anchor inside the right-half zone.
+    return Observation(track_id, "person", 0.9, (0.68, 0.6, 0.72, y2))
+
+
+def test_track_entering_through_frame_edge_counts_as_entry():
+    m = make(confirm=2)
+    events = m.update(0.0, 0, [])
+    events += m.update(0.2, 1, [edge_obs(7)])
+    events += m.update(0.4, 2, [edge_obs(7, y2=0.9)])
+    assert types(events) == [EventType.ZONE_ENTRY]
+    assert events[0].timestamp == pytest.approx(0.2)
+
+
+def test_edge_rule_ignores_first_frame_and_can_be_disabled():
+    # Objects already visible on the very first frame are pre-existing, not entries.
+    m = make()
+    assert m.update(0.0, 0, [edge_obs(1)]) + m.update(0.2, 1, [edge_obs(1)]) == []
+    off = make(edge_entries=False)
+    off.update(0.0, 0, [])
+    assert off.update(0.2, 1, [edge_obs(2)]) + off.update(0.4, 2, [edge_obs(2)]) == []
+
+
 def test_hysteresis_suppresses_boundary_jitter():
     # One-sample excursions do not count with confirm_samples=2.
     jitter = [0.4, 0.55, 0.45, 0.52, 0.48, 0.49]

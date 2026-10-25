@@ -46,6 +46,7 @@ def build_monitor(zones: Sequence[MonitoringZone], params: ProcessingSettings) -
         lost_timeout=params.track_lost_timeout,
         occupancy_cooldown=params.occupancy_alert_cooldown,
         anchor_mode=params.anchor_mode,
+        edge_entries=params.edge_entries,
     )
 
 
