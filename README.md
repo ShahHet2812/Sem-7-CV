@@ -10,6 +10,18 @@ synchronized video overlays, an event inbox, analytics and CSV export.
 Everything runs locally: no paid APIs, no cloud credentials, no proprietary datasets. Every number in the UI is
 computed from videos you actually process. The app does not seed demonstration records.
 
+| Restricted-zone alert (worker crosses the hazard line) | Retail store analysis with zones |
+|---|---|
+| ![Restricted zone alert](docs/screenshots/03-restricted-zone-alert.png) | ![Retail analysis](docs/screenshots/04-retail-analysis.png) |
+| **Overview dashboard** | **Events and alerts** |
+| ![Dashboard](docs/screenshots/01-dashboard.png) | ![Events](docs/screenshots/06-events.png) |
+
+More screenshots: [video library](docs/screenshots/02-video-library.png), [zone editor](docs/screenshots/05-zone-editor.png),
+[analytics](docs/screenshots/07-analytics.png), [settings](docs/screenshots/08-settings.png).
+
+**Quick start:** `cp .env.example .env && docker compose up -d --build`, then open <http://localhost:8080> and click
+**Video Library → Sample videos → Import all**.
+
 ---
 
 ## Contents
@@ -186,7 +198,7 @@ copied into each job when it is queued, so a job is reproducible and retries use
 
 ## Using the application
 
-1. **Video Library → Upload video** (or **Import sample video**). Supported formats are MP4, MOV, M4V, AVI,
+1. **Video Library → Upload video** (or **Sample videos** to import ready-made clips). Supported formats are MP4, MOV, M4V, AVI,
    MKV and WEBM, up to `MAX_UPLOAD_MB`.
 2. Click **Process**. The job is queued, and you can watch progress (frames decoded / total) live.
 3. **Monitoring Zones → Draw new zone**: pause on a representative frame, click the polygon vertices, then
@@ -330,14 +342,14 @@ every error has the form `{"error": {"code", "message", "details?"}}`.
 ## Testing
 
 ```bash
-# Backend: 100 tests (API, geometry, zone state machine, video reader, job lifecycle, migrations)
+# Backend: 101 tests (API, geometry, zone state machine, video reader, job lifecycle, migrations)
 cd backend && source .venv/bin/activate
 pytest                    # uses a temporary SQLite DB via the real Alembic migrations, no weights needed
 ruff check app tests
 
 # Frontend: type check, lint, unit/component tests, production build
 cd frontend
-npm run typecheck && npm run lint && npm test && npm run build      # or: npm run check
+npm run typecheck && npm run lint && npm test && npm run build      # 27 tests; or: npm run check
 
 # Docker configuration
 docker compose config --quiet
@@ -351,7 +363,7 @@ sample clip; see the [Demonstrating the project](#demonstrating-the-project) sec
 
 ```bash
 python -m app.cli reset-results     # delete jobs, detections, events, snapshots; KEEP videos and zones
-python -m app.cli delete-samples    # delete only videos imported via "Import sample video"
+python -m app.cli delete-samples    # delete only videos imported from the sample library
 python -m app.cli download-model    # fetch/verify weights
 python -m app.cli init-db           # apply migrations
 # in Docker: docker compose exec backend python -m app.cli reset-results --yes
@@ -408,19 +420,25 @@ Deleting a video in the UI removes its rows (through cascades), file, thumbnail 
 
 A walkthrough of about 10 minutes for an evaluation:
 
-1. `docker compose up -d --build`, then open <http://localhost:8080>. The empty dashboard shows the onboarding
-   steps (there is no fake data).
-2. Click **Import sample video**, then **Process** in the Video Library and watch the progress bar.
-3. Open **Monitoring Zones**, pause around 0:15 and draw a zone over the corridor floor. Set *Max occupancy*
-   to 1 and save. Point out that events appear immediately because they are recomputed from stored tracks.
-4. In the **Analysis Workspace**, play the video. Show the boxes, track IDs and the bottom-center anchor dots,
-   and how a box crossing the zone edge produces an entry on the timeline. Click a timeline event to jump to it.
-5. Under **Events**, filter to *Alerts only*, open an occupancy alert to see its snapshot, mark it reviewed,
-   and export CSV.
-6. Use **Analytics** to show occupancy over time and the metric definitions card.
-7. Under **Settings**, change *zone confirmation samples* or the anchor point, then press **Recompute** on the
-   zones page to show how the parameters affect the events.
-8. Optionally, run `pytest` to show the geometry and state-machine tests.
+1. `docker compose up -d --build`, then open <http://localhost:8080>. On a fresh install the dashboard shows the
+   onboarding steps (there is no fake data).
+2. **Video Library → Sample videos**, keep *Set up demo scenario* on and import
+   **Restricted area — hazard boundary (DMZ-style demo)**. Its restricted zone is created and processing starts
+   automatically; watch the progress bar (about 20 s on a laptop CPU).
+3. Open it in the **Analysis Workspace** and play it. Every time a worker steps over the hazard line, a critical
+   *Restricted entry* appears on the timeline and as a red marker on the seek bar; click one to jump to it with
+   the person outlined in red. Point out the bottom-center anchor dots: they are what is tested against the zone.
+4. Show the **alert bell** in the header and the **Events** page filtered to *Alerts only*. Open an alert to see
+   its JPEG snapshot, mark it reviewed, and export CSV.
+5. Show a user-drawn zone: on **Monitoring Zones**, pause the retail-store video (or any people sample), click a
+   polygon over the entrance and save. Events appear immediately because they are recomputed from stored tracks,
+   so the model does not need to run again.
+6. Show detection of other objects with the sample clips: vehicles (parking lot, street), bottles, fruit,
+   classroom furniture, and the 1968 USAF air-base film (soldiers, aircraft).
+7. Use **Analytics** for occupancy over time and the *How metrics are calculated* card. Explain that track IDs
+   are not a people count.
+8. Under **Settings**, change *zone confirmation samples*, then press **Recompute** on the zones page to show how
+   the parameters affect events. Optionally run `pytest` (101 tests) to show the geometry and state-machine tests.
 
 ## Extending ZoneVision
 
